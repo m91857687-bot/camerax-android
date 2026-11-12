@@ -1,3 +1,5 @@
+import java.io.InputStream
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -163,6 +165,9 @@ dependencies {
     // [CONFLICT FIX] Guava ListenableFuture vs CameraX
     implementation(libs.guava)
 
+    // MediaPipe Tasks Vision (Face Landmarker)
+    implementation(libs.mediapipe.tasks.vision)
+
     // Compose
     implementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -221,3 +226,25 @@ afterEvaluate {
         }
     }
 }
+
+val downloadFaceLandmarker = tasks.register("downloadFaceLandmarker") {
+    val modelFile = file("src/main/assets/face_landmarker.task")
+    outputs.file(modelFile)
+    doLast {
+        if (!modelFile.exists() || modelFile.length() < 1000) {
+            println("Downloading MediaPipe face_landmarker.task model...")
+            modelFile.parentFile.mkdirs()
+            URI.create("https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task").toURL().openStream().use { input ->
+                modelFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            println("Successfully downloaded face_landmarker.task: ${modelFile.length()} bytes")
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+    dependsOn(downloadFaceLandmarker)
+}
+

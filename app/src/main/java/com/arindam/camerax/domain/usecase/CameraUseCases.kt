@@ -14,6 +14,9 @@ import com.arindam.camerax.domain.model.CaptureSettings
 import com.arindam.camerax.domain.model.EffectMode
 import com.arindam.camerax.domain.model.DeviceCaptureFeatures
 import com.arindam.camerax.domain.model.ExposurePriority
+import com.arindam.camerax.domain.model.FaceTrackingMetrics
+import com.arindam.camerax.domain.model.FaceTrackingResult
+import com.arindam.camerax.domain.model.FaceTrackingState
 import com.arindam.camerax.domain.model.FlashMode
 import com.arindam.camerax.domain.model.LowLightBoost
 import com.arindam.camerax.domain.model.NightScene
@@ -21,6 +24,7 @@ import com.arindam.camerax.domain.model.RecordingEvent
 import com.arindam.camerax.domain.model.ZoomInfo
 import com.arindam.camerax.domain.repository.CameraRepository
 import com.arindam.camerax.domain.repository.DeviceFeaturesRepository
+import com.arindam.camerax.domain.repository.FaceTrackingRepository
 import com.arindam.camerax.domain.repository.MediaRepository
 import com.arindam.camerax.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.SharedFlow
@@ -95,6 +99,7 @@ class TapToFocus(private val repository: CameraRepository) {
 class SetEffect(private val repository: CameraRepository) {
     operator fun invoke(type: EffectMode) = repository.setEffect(type)
     operator fun invoke(type: EffectMode, intensity: Float) = repository.setEffect(type, intensity)
+    operator fun invoke(type: EffectMode, intensity: Float, enabled: Boolean) = repository.setEffect(type, intensity, enabled)
 }
 
 /** Updates live filter intensity without changing mode. */
@@ -188,4 +193,24 @@ class LoadCaptureSettings(private val repository: SettingsRepository) {
 /** CameraX capability probe (one provider fetch). */
 class ProbeDeviceFeatures(private val repository: DeviceFeaturesRepository) {
     suspend operator fun invoke(): DeviceCaptureFeatures = repository.probe()
+}
+
+/** Observe real-time face tracking result flow. */
+class ObserveFaceTracking(private val repository: FaceTrackingRepository) {
+    operator fun invoke(): StateFlow<FaceTrackingResult?> = repository.trackingResult
+}
+
+/** Observe real-time face tracking state machine (NO_FACE, TRACKING, etc.). */
+class ObserveFaceTrackingState(private val repository: FaceTrackingRepository) {
+    operator fun invoke(): StateFlow<FaceTrackingState> = repository.trackingState
+}
+
+/** Observe face tracking performance metrics (FPS, latency, dropped frames). */
+class ObserveFaceTrackingMetrics(private val repository: FaceTrackingRepository) {
+    operator fun invoke(): StateFlow<FaceTrackingMetrics> = repository.trackingMetrics
+}
+
+/** Toggle face tracking on/off. */
+class SetFaceTrackingEnabled(private val repository: FaceTrackingRepository) {
+    operator fun invoke(enabled: Boolean) = repository.setTrackingEnabled(enabled)
 }

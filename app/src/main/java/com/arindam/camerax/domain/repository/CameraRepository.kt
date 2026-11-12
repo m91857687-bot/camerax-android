@@ -74,6 +74,9 @@ interface CameraRepository {
     fun setEffect(type: EffectMode, intensity: Float) {
         setEffect(type)
     }
+    fun setEffect(type: EffectMode, intensity: Float, enabled: Boolean) {
+        setEffect(type, if (enabled) intensity else 0f)
+    }
     fun setEffectIntensity(intensity: Float) {}
 
     /** Updates target rotation for capture; no rebind. */

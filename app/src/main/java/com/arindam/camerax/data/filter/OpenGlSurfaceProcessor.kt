@@ -49,18 +49,39 @@ class OpenGlSurfaceProcessor : SurfaceProcessor, SurfaceTexture.OnFrameAvailable
     private val isReleased = AtomicBoolean(false)
 
     @Volatile
+    private var filterEnabled: Boolean = false
+
+    @Volatile
     private var activeFilterType: Int = 0
 
     @Volatile
     private var activeIntensity: Float = 1.0f
 
+    @Volatile
+    private var faceTrackingBridge: com.arindam.camerax.data.tracking.FaceTrackingBridge? = null
+
     /**
-     * Updates the active cinematic filter and intensity for both Preview and VideoCapture.
+     * Attaches the thread-safe bridge to poll real-time face tracking results.
+     */
+    fun setFaceTrackingBridge(bridge: com.arindam.camerax.data.tracking.FaceTrackingBridge?) {
+        this.faceTrackingBridge = bridge
+    }
+
+    /**
+     * Returns the latest valid face tracking result, or null if tracking is disabled or stale.
+     */
+    fun getLatestFaceTrackingResult(): com.arindam.camerax.domain.model.FaceTrackingResult? {
+        return faceTrackingBridge?.getLatestResultForRendering()
+    }
+
+    /**
+     * Updates the active cinematic filter, intensity, and enable state for Preview and VideoCapture.
      * Takes effect on the next frame immediately with zero pipeline rebind.
      */
-    fun setFilter(type: EffectMode, intensity: Float = 1.0f) {
-        activeFilterType = type.filterId
-        activeIntensity = intensity.coerceIn(0.0f, 1.0f)
+    fun setFilter(type: EffectMode, intensity: Float = 1.0f, enabled: Boolean = (type != EffectMode.NONE && intensity > 0f)) {
+        filterEnabled = enabled && (type != EffectMode.NONE) && (intensity > 0f)
+        activeFilterType = if (filterEnabled) type.filterId else 0
+        activeIntensity = if (filterEnabled) intensity.coerceIn(0.0f, 1.0f) else 0.0f
         glHandler.post {
             renderer?.setFilter(activeFilterType, activeIntensity)
         }

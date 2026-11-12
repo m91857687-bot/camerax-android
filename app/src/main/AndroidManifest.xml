@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Allow MediaPipe tasks-vision on minSdk 23 with runtime API 24+ gating -->
+    <uses-sdk tools:overrideLibrary="com.google.mediapipe.tasks.vision,com.google.mediapipe.tasks.core" />
+
     <!-- Declare features -->
     <uses-feature android:name="android.hardware.camera.any" />
     <uses-feature

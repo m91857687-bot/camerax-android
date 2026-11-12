@@ -109,7 +109,10 @@ import kotlin.coroutines.suspendCoroutine
  * call this class; go through use cases / [com.arindam.camerax.di.CameraInteractors] from
  * [com.arindam.camerax.di.AppContainer].
  */
-class CameraSession(private val context: Context) : CameraRepository {
+class CameraSession(
+    private val context: Context,
+    val faceTrackingEngine: com.arindam.camerax.data.tracking.FaceTrackingEngine? = null
+) : CameraRepository {
 
     private val cameraExecutor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -131,6 +134,7 @@ class CameraSession(private val context: Context) : CameraRepository {
     private var openGlSurfaceProcessor: OpenGlSurfaceProcessor? = null
     private var currentEffect: EffectMode = EffectMode.NONE
     private var currentEffectIntensity: Float = 1.0f
+    private var filterEnabled: Boolean = false
     private var frontMirrorEnabled = true
     private val _nightScene = MutableStateFlow(NightScene.UNKNOWN)
     override val nightScene: StateFlow<NightScene> = _nightScene.asStateFlow()

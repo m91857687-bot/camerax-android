@@ -5,9 +5,12 @@ import com.arindam.camerax.data.camera.CameraDeviceFeaturesRepository
 import com.arindam.camerax.data.camera.CameraSession
 import com.arindam.camerax.data.media.FileMediaRepository
 import com.arindam.camerax.data.settings.PreferenceSettingsRepository
+import com.arindam.camerax.data.tracking.FaceTrackingEngine
 import com.arindam.camerax.domain.repository.CameraRepository
 import com.arindam.camerax.domain.repository.DeviceFeaturesRepository
+import com.arindam.camerax.domain.repository.FaceTrackingRepository
 import com.arindam.camerax.domain.repository.MediaRepository
+import com.arindam.camerax.domain.repository.NoOpFaceTrackingRepository
 import com.arindam.camerax.domain.repository.SettingsRepository
 import com.arindam.camerax.domain.usecase.BindCamera
 import com.arindam.camerax.domain.usecase.CapturePhoto
@@ -17,6 +20,9 @@ import com.arindam.camerax.domain.usecase.ListMedia
 import com.arindam.camerax.domain.usecase.LoadCaptureSettings
 import com.arindam.camerax.domain.usecase.MuteRecording
 import com.arindam.camerax.domain.usecase.ObserveEffectFrame
+import com.arindam.camerax.domain.usecase.ObserveFaceTracking
+import com.arindam.camerax.domain.usecase.ObserveFaceTrackingMetrics
+import com.arindam.camerax.domain.usecase.ObserveFaceTrackingState
 import com.arindam.camerax.domain.usecase.ObserveLowLightBoost
 import com.arindam.camerax.domain.usecase.ObserveNightScene
 import com.arindam.camerax.domain.usecase.ObserveRecording
@@ -29,6 +35,7 @@ import com.arindam.camerax.domain.usecase.ResumeRecording
 import com.arindam.camerax.domain.usecase.SetEffect
 import com.arindam.camerax.domain.usecase.SetExposure
 import com.arindam.camerax.domain.usecase.SetExposureCompensation
+import com.arindam.camerax.domain.usecase.SetFaceTrackingEnabled
 import com.arindam.camerax.domain.usecase.SetFlash
 import com.arindam.camerax.domain.usecase.SetLowLightBoost
 import com.arindam.camerax.domain.usecase.SetTargetRotation
@@ -51,8 +58,12 @@ class AppContainer(context: Context) {
     /** Coroutine dispatchers for repositories and ViewModels. */
     val dispatchers = AppDispatchers()
 
+    /** Face tracking engine backed by MediaPipe Tasks Vision. */
+    val faceTrackingEngine: FaceTrackingEngine = FaceTrackingEngine(appContext)
+    val faceTrackingRepository: FaceTrackingRepository = faceTrackingEngine
+
     /** CameraX session implementation of [CameraRepository]. */
-    val cameraRepository: CameraRepository = CameraSession(appContext)
+    val cameraRepository: CameraRepository = CameraSession(appContext, faceTrackingEngine)
 
     /** Disk + MediaStore access; I/O runs on [dispatchers.io]. */
     val mediaRepository: MediaRepository = FileMediaRepository(appContext, dispatchers.io)
@@ -67,7 +78,8 @@ class AppContainer(context: Context) {
         cameraRepository,
         mediaRepository,
         settingsRepository,
-        deviceFeaturesRepository
+        deviceFeaturesRepository,
+        faceTrackingRepository
     )
 }
 
@@ -104,7 +116,11 @@ data class CameraInteractors(
     val publishMedia: PublishMedia,
     val picturesDirectory: PicturesDirectory,
     val loadCaptureSettings: LoadCaptureSettings,
-    val probeDeviceFeatures: ProbeDeviceFeatures
+    val probeDeviceFeatures: ProbeDeviceFeatures,
+    val observeFaceTracking: ObserveFaceTracking,
+    val observeFaceTrackingState: ObserveFaceTrackingState,
+    val observeFaceTrackingMetrics: ObserveFaceTrackingMetrics,
+    val setFaceTrackingEnabled: SetFaceTrackingEnabled
 )
 
 /** Builds [CameraInteractors] from repository implementations (used in tests). */
@@ -112,7 +128,8 @@ fun cameraInteractors(
     cameraRepository: CameraRepository,
     mediaRepository: MediaRepository,
     settingsRepository: SettingsRepository,
-    deviceFeaturesRepository: DeviceFeaturesRepository
+    deviceFeaturesRepository: DeviceFeaturesRepository,
+    faceTrackingRepository: FaceTrackingRepository = NoOpFaceTrackingRepository()
 ) = CameraInteractors(
     bindCamera = BindCamera(cameraRepository),
     capturePhoto = CapturePhoto(cameraRepository),
@@ -142,5 +159,9 @@ fun cameraInteractors(
     publishMedia = PublishMedia(mediaRepository),
     picturesDirectory = PicturesDirectory(mediaRepository),
     loadCaptureSettings = LoadCaptureSettings(settingsRepository),
-    probeDeviceFeatures = ProbeDeviceFeatures(deviceFeaturesRepository)
+    probeDeviceFeatures = ProbeDeviceFeatures(deviceFeaturesRepository),
+    observeFaceTracking = ObserveFaceTracking(faceTrackingRepository),
+    observeFaceTrackingState = ObserveFaceTrackingState(faceTrackingRepository),
+    observeFaceTrackingMetrics = ObserveFaceTrackingMetrics(faceTrackingRepository),
+    setFaceTrackingEnabled = SetFaceTrackingEnabled(faceTrackingRepository)
 )
