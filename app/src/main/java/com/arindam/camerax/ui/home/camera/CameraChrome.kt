@@ -67,6 +67,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Timer3
 import androidx.compose.material.icons.filled.TimerOff
+import androidx.compose.material.icons.outlined.Face
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
@@ -151,6 +152,7 @@ fun CameraHeader(
     onGridClicked: () -> Unit,
     onMotionClicked: () -> Unit,
     onSettingsClicked: () -> Unit,
+    onFaceTrackingClicked: () -> Unit = {},
     onExposurePrioritySelected: (ExposurePriority) -> Unit = {},
     onIsoChanged: (Int) -> Unit = {},
     onShutterChanged: (Long) -> Unit = {},
@@ -194,7 +196,8 @@ fun CameraHeader(
                     state.showsTimer ||
                     state.showsGrid ||
                     state.showsMotion ||
-                    state.showsExposureControls
+                    state.showsExposureControls ||
+                    state.showsFaceTracking
                 if (hasQuickActions) {
                     Row(
                         modifier = Modifier
@@ -269,6 +272,17 @@ fun CameraHeader(
                         embedded = true,
                         tooltip = true,
                         onClick = { exposureOpen = !exposureOpen }
+                    )
+                }
+                if (state.showsFaceTracking) {
+                    GlassIconButton(
+                        icon = Icons.Outlined.Face,
+                        contentDescription = stringResource(R.string.face_tracking_toggle),
+                        selected = state.faceTrackingEnabled,
+                        compact = compact,
+                        embedded = true,
+                        tooltip = true,
+                        onClick = onFaceTrackingClicked
                     )
                 }
                     }
@@ -416,6 +430,24 @@ fun LiveStatusStrip(state: CameraUiState) {
         if (state.showsNightHint && state.autoNightActive) add(stringResource(R.string.night_mode_active))
         else if (state.showsNightHint && state.nightScene == NightScene.RECOMMENDED) {
             add(stringResource(R.string.night_mode_recommended))
+        }
+        if (state.faceTrackingEnabled) {
+            val faceCount = state.faceTrackingResult?.faces?.size ?: 0
+            val statusLabel = when (state.faceTrackingState) {
+                com.arindam.camerax.domain.model.FaceTrackingState.NO_FACE -> stringResource(R.string.face_tracking_searching)
+                com.arindam.camerax.domain.model.FaceTrackingState.FACE_DETECTED -> stringResource(R.string.face_tracking_detected)
+                com.arindam.camerax.domain.model.FaceTrackingState.TRACKING -> {
+                    val countStr = if (faceCount > 1) " ($faceCount)" else ""
+                    "${stringResource(R.string.face_tracking_active)}$countStr"
+                }
+                com.arindam.camerax.domain.model.FaceTrackingState.TRACKING_LOST -> stringResource(R.string.face_tracking_lost)
+                com.arindam.camerax.domain.model.FaceTrackingState.TRACKING_ERROR -> stringResource(R.string.face_tracking_error)
+            }
+            val metrics = state.faceTrackingMetrics
+            val telemetry = if (state.faceTrackingState == com.arindam.camerax.domain.model.FaceTrackingState.TRACKING && metrics.fps > 0f) {
+                " · %.0f FPS".format(metrics.fps)
+            } else ""
+            add("Face: $statusLabel$telemetry")
         }
         if (state.showsPip) add(stringResource(R.string.dual_live_hint))
         if (state.captureAction == CaptureAction.PANORAMA) {
@@ -822,11 +854,57 @@ fun FilterIntensityControl(
 }
 
 @Composable
+fun FilterMasterSwitch(
+    filterEnabled: Boolean,
+    effect: EffectMode,
+    onToggleFilter: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onToggleFilter,
+        modifier = modifier
+            .padding(horizontal = 20.dp, vertical = 2.dp)
+            .testTag("filter_master_toggle_button"),
+        shape = RoundedCornerShape(16.dp),
+        color = if (filterEnabled) CameraAccent.copy(alpha = 0.22f) else Color(0xDD2A2A2A),
+        border = BorderStroke(
+            1.dp,
+            if (filterEnabled) CameraAccent.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.15f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (filterEnabled) CameraAccent else Color.Gray)
+            )
+            Text(
+                text = if (filterEnabled) {
+                    stringResource(R.string.filter_state_enabled) + ": " + stringResource(effect.labelRes)
+                } else {
+                    stringResource(R.string.filter_state_disabled)
+                },
+                color = if (filterEnabled) CameraAccent else CameraOnGlassMuted,
+                fontFamily = CameraFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
 fun EffectsFilmstrip(
     state: CameraUiState,
     onEffectSelected: (EffectMode) -> Unit,
     onIntensityChange: (Float) -> Unit = {},
-    onResetIntensity: () -> Unit = {}
+    onResetIntensity: () -> Unit = {},
+    onToggleFilterEnabled: () -> Unit = {}
 ) {
     val itemWidth = 72.dp
     AnimatedVisibility(
@@ -843,11 +921,21 @@ fun EffectsFilmstrip(
                 enter = fadeIn(tween(180)) + expandVertically(tween(220)),
                 exit = fadeOut(tween(140)) + shrinkVertically(tween(180))
             ) {
-                FilterIntensityControl(
-                    intensity = state.effectIntensity,
-                    onIntensityChange = onIntensityChange,
-                    onResetIntensity = onResetIntensity
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    FilterMasterSwitch(
+                        filterEnabled = state.filterEnabled,
+                        effect = state.effect,
+                        onToggleFilter = onToggleFilterEnabled
+                    )
+                    FilterIntensityControl(
+                        intensity = state.effectIntensity,
+                        onIntensityChange = onIntensityChange,
+                        onResetIntensity = onResetIntensity
+                    )
+                }
             }
 
             BoxWithConstraints(
@@ -900,6 +988,7 @@ fun CameraFooter(
     onEffectSelected: (EffectMode) -> Unit,
     onIntensityChange: (Float) -> Unit = {},
     onResetIntensity: () -> Unit = {},
+    onToggleFilterEnabled: () -> Unit = {},
     onZoomSelected: (Float) -> Unit = {}
 ) {
     val chrome = if (state.showsTools) themedOverlayChrome() else null
@@ -938,7 +1027,8 @@ fun CameraFooter(
                 state = state,
                 onEffectSelected = onEffectSelected,
                 onIntensityChange = onIntensityChange,
-                onResetIntensity = onResetIntensity
+                onResetIntensity = onResetIntensity,
+                onToggleFilterEnabled = onToggleFilterEnabled
             )
             AnimatedVisibility(
                 visible = !state.isRecording && !state.panoramaActive,

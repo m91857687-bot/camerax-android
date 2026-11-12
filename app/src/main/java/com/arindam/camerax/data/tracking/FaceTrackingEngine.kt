@@ -110,6 +110,7 @@ class FaceTrackingEngine(
         if (enabled) {
             start()
         } else {
+            releaseTracker()
             bridge.reset()
             _trackingResult.value = null
             _trackingState.value = FaceTrackingState.NO_FACE

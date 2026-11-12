@@ -40,6 +40,9 @@ class MediaPipeFaceTracker(
     private var faceFirstDetectedUptime = 0L
     private var faceLostUptime = 0L
     private val internalState = AtomicReference(FaceTrackingState.NO_FACE)
+    private val frameStartTimes = java.util.concurrent.ConcurrentHashMap<Long, Long>()
+    @Volatile private var currentFrameRotation: Int = 0
+    @Volatile private var currentIsFrontCamera: Boolean = true
 
     @Synchronized
     fun initialize(): Boolean {
@@ -120,10 +123,14 @@ class MediaPipeFaceTracker(
         }
 
         try {
+            currentFrameRotation = rotationDegrees
+            currentIsFrontCamera = isFrontCamera
+
             val nowMs = SystemClock.uptimeMillis()
             val lastTs = lastFrameTimestampMs.get()
             val frameTs = if (nowMs > lastTs) nowMs else lastTs + 1L
             lastFrameTimestampMs.set(frameTs)
+            frameStartTimes[frameTs] = nowMs
 
             val processingOptions = ImageProcessingOptions.builder()
                 .setRotationDegrees(rotationDegrees)
@@ -207,10 +214,15 @@ class MediaPipeFaceTracker(
                 )
             }
 
+            val submitUptime = frameStartTimes.remove(input.timestamp) ?: now
+            val latency = (SystemClock.uptimeMillis() - submitUptime).coerceAtLeast(1L)
+
             val trackingResult = FaceTrackingResult(
                 faces = meshes,
                 timestampMs = now,
-                processingTimeMs = SystemClock.uptimeMillis() - now
+                processingTimeMs = latency,
+                frameRotation = currentFrameRotation,
+                isFrontCamera = currentIsFrontCamera
             )
 
             bridge.postResult(trackingResult, newState)

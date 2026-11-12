@@ -123,6 +123,18 @@
     <string name="effect_frame_description">Effect camera frame</string>
     <string name="filter_intensity">Filter intensity</string>
     <string name="filter_intensity_reset">Reset</string>
+    <string name="filter_state_enabled">Filter: Active</string>
+    <string name="filter_state_disabled">Filter: Bypassed</string>
+    <string name="filter_toggle_title">Toggle Filter Effect</string>
+    <string name="face_tracking_title">Face Tracking</string>
+    <string name="face_tracking_toggle">Toggle Face Mesh Tracking</string>
+    <string name="face_tracking_searching">Searching...</string>
+    <string name="face_tracking_detected">Face Detected</string>
+    <string name="face_tracking_active">Tracking</string>
+    <string name="face_tracking_lost">Face Lost</string>
+    <string name="face_tracking_error">Tracking Error</string>
+    <string name="face_tracking_fps_format">%1$.1f FPS</string>
+    <string name="face_tracking_latency_format">%1$d ms</string>
 
     <!-- Capture confirmation -->
     <string name="capture_review_retake">Retake</string>

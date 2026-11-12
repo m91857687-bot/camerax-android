@@ -119,7 +119,14 @@ data class CameraUiState(
     val supportedExtensions: Set<CameraExtension> = emptySet(),
     val effect: EffectMode = EffectMode.NONE,
     val effectIntensity: Float = 1.0f,
+    val filterEnabled: Boolean = false,
     val showsIntensitySlider: Boolean = false,
+    val faceTrackingEnabled: Boolean = false,
+    val faceTrackingState: com.arindam.camerax.domain.model.FaceTrackingState =
+        com.arindam.camerax.domain.model.FaceTrackingState.NO_FACE,
+    val faceTrackingResult: com.arindam.camerax.domain.model.FaceTrackingResult? = null,
+    val faceTrackingMetrics: com.arindam.camerax.domain.model.FaceTrackingMetrics =
+        com.arindam.camerax.domain.model.FaceTrackingMetrics(),
     val effectFrame: ImageBitmap? = null,
     val focusPoint: Offset? = null,
     val captureFlashToken: Int = 0,
@@ -220,8 +227,14 @@ data class CameraUiState(
             (exposureLimits.supportedPriorities.size >= 2 ||
                 exposureLimits.evSupported)
 
+    val isFilterActive: Boolean
+        get() = filterEnabled && effect != EffectMode.NONE && effectIntensity > 0f
+
     val showsEffects: Boolean
         get() = profile.showsEffects
+
+    val showsFaceTracking: Boolean
+        get() = profile.showsEffects || mode == CameraMode.PHOTO || mode == CameraMode.VIDEO
 
     val showsPip: Boolean
         get() = profile.showsPip

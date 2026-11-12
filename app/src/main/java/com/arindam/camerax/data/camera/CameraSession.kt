@@ -336,10 +336,16 @@ class CameraSession(
         videoCapture = video
 
         val includeVideo = !useExtension && !liveEffects
+        val isFaceTrackingActive = faceTrackingEngine?.isEnabled?.value == true
         val analysis = if (liveEffects) {
+            stopFaceTrackingAnalysis()
             buildColorAnalysis(rotation, config.effect)
+        } else if (isFaceTrackingActive) {
+            stopColorAnalysis()
+            buildFaceTrackingAnalysis(rotation, config.lens == CameraLens.FRONT)
         } else {
             stopColorAnalysis()
+            stopFaceTrackingAnalysis()
             null
         }
         val wantFps60 = config.videoFps60 && includeVideo && !useExtension
@@ -529,14 +535,19 @@ class CameraSession(
     }
 
     override fun setEffect(type: EffectMode, intensity: Float) {
+        setEffect(type, intensity, enabled = (type != EffectMode.NONE && intensity > 0f))
+    }
+
+    override fun setEffect(type: EffectMode, intensity: Float, enabled: Boolean) {
         currentEffect = type
         currentEffectIntensity = intensity.coerceIn(0.0f, 1.0f)
-        colorAnalyzer?.effect = type
-        openGlSurfaceProcessor?.setFilter(type, currentEffectIntensity)
+        filterEnabled = enabled && (type != EffectMode.NONE) && (currentEffectIntensity > 0f)
+        colorAnalyzer?.effect = if (filterEnabled) type else EffectMode.NONE
+        openGlSurfaceProcessor?.setFilter(type, currentEffectIntensity, filterEnabled)
     }
 
     override fun setEffectIntensity(intensity: Float) {
-        setEffect(currentEffect, intensity)
+        setEffect(currentEffect, intensity, filterEnabled)
     }
 
     override fun setTargetRotation(rotation: Int) {
@@ -591,6 +602,8 @@ class CameraSession(
         camera?.cameraControl?.enableTorch(false)
         cameraProvider?.unbindAll()
         stopColorAnalysis()
+        stopFaceTrackingAnalysis()
+        faceTrackingEngine?.bridge?.reset()
         openGlSurfaceProcessor?.release()
         openGlSurfaceProcessor = null
         camera = null
@@ -963,11 +976,48 @@ class CameraSession(
     }
 
     private fun stopColorAnalysis() {
-        imageAnalysis?.clearAnalyzer()
-        imageAnalysis = null
+        if (imageAnalysis !== faceAnalysis) {
+            imageAnalysis?.clearAnalyzer()
+            imageAnalysis = null
+        }
         colorAnalyzer?.release()
         colorAnalyzer = null
         _effectFrame.value = null
+    }
+
+    private var faceAnalysis: ImageAnalysis? = null
+
+    private fun buildFaceTrackingAnalysis(rotation: Int, isFront: Boolean): ImageAnalysis? {
+        val engine = faceTrackingEngine ?: return null
+        val analyzer = engine.createAnalyzer(isFrontCamera = { isFront }) ?: return null
+        val analysis = ImageAnalysis.Builder()
+            .setTargetRotation(rotation)
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(1280, 720),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                        )
+                    )
+                    .build()
+            )
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+            .also {
+                it.setAnalyzer(analysisExecutor, analyzer)
+                faceAnalysis = it
+                imageAnalysis = it
+            }
+        return analysis
+    }
+
+    private fun stopFaceTrackingAnalysis() {
+        faceAnalysis?.clearAnalyzer()
+        if (imageAnalysis === faceAnalysis) {
+            imageAnalysis = null
+        }
+        faceAnalysis = null
     }
 
     private fun canRetainRecording(): Boolean =
@@ -1025,6 +1075,10 @@ class CameraSession(
     ): Camera {
         val attempts = mutableListOf<Pair<List<UseCase>, Boolean>>()
         if (imageAnalysis != null) {
+            if (videoCapture != null) {
+                if (allowEffect) attempts += listOfNotNull(preview, imageCapture, videoCapture, imageAnalysis) to true
+                attempts += listOfNotNull(preview, imageCapture, videoCapture, imageAnalysis) to false
+            }
             if (allowEffect) attempts += listOfNotNull(preview, imageCapture, imageAnalysis) to true
             attempts += listOfNotNull(preview, imageCapture, imageAnalysis) to false
             attempts += listOf(imageCapture, imageAnalysis) to false
@@ -1052,6 +1106,7 @@ class CameraSession(
                     !useCases.contains(videoCapture)
                 if (imageAnalysis == null || !useCases.contains(imageAnalysis)) {
                     stopColorAnalysis()
+                    stopFaceTrackingAnalysis()
                 }
                 Logger.debug(TAG, "Bound use cases: ${useCases.map { it.javaClass.simpleName }}, effect=$useEffect")
                 return bound
@@ -1078,7 +1133,8 @@ class CameraSession(
                 val processor = openGlSurfaceProcessor ?: OpenGlSurfaceProcessor().also {
                     openGlSurfaceProcessor = it
                 }
-                processor.setFilter(currentEffect, currentEffectIntensity)
+                faceTrackingEngine?.let { processor.setFaceTrackingBridge(it.bridge) }
+                processor.setFilter(currentEffect, currentEffectIntensity, filterEnabled)
                 addEffect(processor.toCameraEffect())
             }
         }
@@ -1451,9 +1507,10 @@ class CameraSession(
     private fun applyStillOutput(
         file: File,
         type: EffectMode,
-        intensity: Float = currentEffectIntensity
+        intensity: Float = currentEffectIntensity,
+        enabled: Boolean = filterEnabled
     ): File {
-        if (type == EffectMode.NONE || intensity <= 0f) return file
+        if (!enabled || type == EffectMode.NONE || intensity <= 0f) return file
         return try {
             StillImageExif.rewriteJpeg(file, quality = 95, maxEdge = MAX_STILL_EDGE) { oriented ->
                 ColorEffects.applyToBitmap(oriented, type, intensity)
