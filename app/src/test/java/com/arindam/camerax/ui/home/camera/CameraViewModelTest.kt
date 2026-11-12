@@ -8,6 +8,7 @@ import com.arindam.camerax.domain.model.CameraMode
 import com.arindam.camerax.domain.model.CaptureAspect
 import com.arindam.camerax.domain.model.CaptureSettings
 import com.arindam.camerax.domain.model.DeviceCaptureFeatures
+import com.arindam.camerax.domain.model.EffectMode
 import com.arindam.camerax.domain.model.FlashMode
 import com.arindam.camerax.domain.model.SlowMotionOptions
 import com.arindam.camerax.domain.model.VideoQuality
@@ -293,5 +294,32 @@ class CameraViewModelTest {
         vm.applyCaptureSettings(CaptureSettings(ultraHdr = true))
         assertFalse(vm.uiState.value.motionPhotoEnabled)
         assertTrue(vm.uiState.value.ultraHdr)
+    }
+
+    @Test
+    fun setEffect_updatesEffectAndShowsIntensitySlider() {
+        val vm = viewModel()
+        vm.setEffect(EffectMode.CINEMATIC)
+        assertEquals(EffectMode.CINEMATIC, vm.uiState.value.effect)
+        assertTrue(vm.uiState.value.showsIntensitySlider)
+        assertEquals(EffectMode.CINEMATIC, camera.lastEffect)
+
+        vm.setEffect(EffectMode.NONE)
+        assertEquals(EffectMode.NONE, vm.uiState.value.effect)
+        assertFalse(vm.uiState.value.showsIntensitySlider)
+        assertEquals(EffectMode.NONE, camera.lastEffect)
+    }
+
+    @Test
+    fun setEffectIntensity_clampsAndUpdatesStateAndRepository() {
+        val vm = viewModel()
+        vm.setEffect(EffectMode.WARM)
+        vm.setEffectIntensity(0.75f)
+        assertEquals(0.75f, vm.uiState.value.effectIntensity, 0.001f)
+        assertEquals(0.75f, camera.lastEffectIntensity ?: 0f, 0.001f)
+
+        vm.resetEffectIntensity()
+        assertEquals(1.0f, vm.uiState.value.effectIntensity, 0.001f)
+        assertEquals(1.0f, camera.lastEffectIntensity ?: 0f, 0.001f)
     }
 }

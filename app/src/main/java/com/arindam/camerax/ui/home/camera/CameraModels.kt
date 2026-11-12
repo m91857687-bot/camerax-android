@@ -75,11 +75,21 @@ val ExposurePriority.labelRes: Int
 val EffectMode.labelRes: Int
     @StringRes get() = when (this) {
         EffectMode.NONE -> R.string.effect_none
+        EffectMode.NATURAL -> R.string.effect_natural
+        EffectMode.CINEMATIC -> R.string.effect_cinematic
+        EffectMode.VINTAGE -> R.string.effect_vintage
+        EffectMode.WARM -> R.string.effect_warm
+        EffectMode.COLD -> R.string.effect_cold
+        EffectMode.GOLDEN -> R.string.effect_golden
+        EffectMode.NOIR -> R.string.effect_noir
+        EffectMode.DRAMA -> R.string.effect_drama
+        EffectMode.PORTRAIT -> R.string.effect_portrait
+        EffectMode.SUNSET -> R.string.effect_sunset
+        EffectMode.SOFT -> R.string.effect_soft
         EffectMode.GRAYSCALE -> R.string.effect_grayscale
         EffectMode.INVERT -> R.string.effect_invert
         EffectMode.SEPIA -> R.string.effect_sepia
         EffectMode.COOL -> R.string.effect_cool
-        EffectMode.WARM -> R.string.effect_warm
         EffectMode.VIVID -> R.string.effect_vivid
     }
 
@@ -108,6 +118,8 @@ data class CameraUiState(
     val extension: CameraExtension = CameraExtension.NONE,
     val supportedExtensions: Set<CameraExtension> = emptySet(),
     val effect: EffectMode = EffectMode.NONE,
+    val effectIntensity: Float = 1.0f,
+    val showsIntensitySlider: Boolean = false,
     val effectFrame: ImageBitmap? = null,
     val focusPoint: Offset? = null,
     val captureFlashToken: Int = 0,

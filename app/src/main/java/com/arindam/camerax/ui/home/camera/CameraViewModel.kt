@@ -654,8 +654,35 @@ class CameraViewModel(
     }
 
     fun setEffect(type: EffectMode) {
-        _uiState.update { it.copy(effect = type) }
-        interactors.setEffect(type)
+        setEffect(type, _uiState.value.effectIntensity)
+    }
+
+    fun setEffect(type: EffectMode, intensity: Float) {
+        val clamped = intensity.coerceIn(0.0f, 1.0f)
+        _uiState.update {
+            it.copy(
+                effect = type,
+                effectIntensity = clamped,
+                showsIntensitySlider = (type != EffectMode.NONE)
+            )
+        }
+        interactors.setEffect(type, clamped)
+    }
+
+    fun setEffectIntensity(intensity: Float) {
+        val clamped = intensity.coerceIn(0.0f, 1.0f)
+        _uiState.update { it.copy(effectIntensity = clamped) }
+        interactors.setEffect(_uiState.value.effect, clamped)
+    }
+
+    fun resetEffectIntensity() {
+        setEffectIntensity(1.0f)
+    }
+
+    fun toggleIntensitySlider() {
+        if (_uiState.value.effect != EffectMode.NONE) {
+            _uiState.update { it.copy(showsIntensitySlider = !it.showsIntensitySlider) }
+        }
     }
 
     fun onShutter(previewView: PreviewView) {

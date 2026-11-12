@@ -86,7 +86,21 @@ class FakeCameraRepository : CameraRepository {
     override fun setLowLightBoost(enabled: Boolean) = Unit
     override fun setZoomRatio(ratio: Float): ZoomInfo? = ZoomInfo(ratio, 1f, 10f)
     override fun tapToFocus(x: Float, y: Float) = Unit
-    override fun setEffect(type: EffectMode) = Unit
+    var lastEffect: EffectMode? = null
+    var lastEffectIntensity: Float? = null
+
+    override fun setEffect(type: EffectMode) {
+        lastEffect = type
+    }
+
+    override fun setEffect(type: EffectMode, intensity: Float) {
+        lastEffect = type
+        lastEffectIntensity = intensity
+    }
+
+    override fun setEffectIntensity(intensity: Float) {
+        lastEffectIntensity = intensity
+    }
     override fun setTargetRotation(rotation: Int) = Unit
     override fun setExposure(priority: ExposurePriority, iso: Int, shutterNanos: Long) = Unit
     override fun setExposureCompensation(index: Int) = Unit

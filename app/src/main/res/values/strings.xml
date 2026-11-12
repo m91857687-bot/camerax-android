@@ -102,14 +102,27 @@
     <string name="extension_beauty">Beauty</string>
 
     <!-- Live camera: Effects mode -->
-    <string name="effect_none">None</string>
+    <string name="effect_none">Original</string>
+    <string name="effect_natural">Natural</string>
+    <string name="effect_cinematic">Cinematic</string>
+    <string name="effect_vintage">Vintage</string>
+    <string name="effect_warm">Warm</string>
+    <string name="effect_cold">Cold</string>
+    <string name="effect_golden">Golden</string>
+    <string name="effect_noir">Noir</string>
+    <string name="effect_drama">Drama</string>
+    <string name="effect_portrait">Portrait</string>
+    <string name="effect_sunset">Sunset</string>
+    <string name="effect_soft">Soft</string>
+    <!-- Legacy compatibility -->
     <string name="effect_grayscale">Grayscale</string>
     <string name="effect_invert">Invert</string>
     <string name="effect_sepia">Sepia</string>
     <string name="effect_cool">Cool</string>
-    <string name="effect_warm">Warm</string>
     <string name="effect_vivid">Vivid</string>
     <string name="effect_frame_description">Effect camera frame</string>
+    <string name="filter_intensity">Filter intensity</string>
+    <string name="filter_intensity_reset">Reset</string>
 
     <!-- Capture confirmation -->
     <string name="capture_review_retake">Retake</string>

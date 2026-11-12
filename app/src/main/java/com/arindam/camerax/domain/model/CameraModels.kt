@@ -62,15 +62,44 @@ enum class CameraExtension {
     BEAUTY
 }
 
-/** Live and still ColorMatrix effect (Effects mode). */
-enum class EffectMode {
-    NONE,
-    GRAYSCALE,
-    INVERT,
-    SEPIA,
-    COOL,
-    WARM,
-    VIVID
+/** Live and still ColorMatrix and GPU filter effect. */
+enum class EffectMode(val filterId: Int) {
+    NONE(0),
+    NATURAL(1),
+    CINEMATIC(2),
+    VINTAGE(3),
+    WARM(4),
+    COLD(5),
+    GOLDEN(6),
+    NOIR(7),
+    DRAMA(8),
+    PORTRAIT(9),
+    SUNSET(10),
+    SOFT(11),
+    // Legacy filters for backward compatibility
+    GRAYSCALE(12),
+    INVERT(13),
+    SEPIA(14),
+    COOL(15),
+    VIVID(16);
+
+    companion object {
+        /** The 11 core cinematic filters plus original in catalog order. */
+        val cinematicFilters: List<EffectMode> = listOf(
+            NONE,
+            NATURAL,
+            CINEMATIC,
+            VINTAGE,
+            WARM,
+            COLD,
+            GOLDEN,
+            NOIR,
+            DRAMA,
+            PORTRAIT,
+            SUNSET,
+            SOFT
+        )
+    }
 }
 
 /** Night-scene recommendation from the camera (API 36+). */

@@ -221,11 +221,11 @@ fun CameraScreen(
                 )
         ) {
             if (keepPreview) {
+                AndroidView(
+                    factory = { previewView },
+                    modifier = Modifier.fillMaxSize()
+                )
                 if (state.showsEffects) {
-                    AndroidView(
-                        factory = { previewView },
-                        modifier = Modifier.size(1.dp)
-                    )
                     val effectFrame = state.effectFrame
                     if (effectFrame != null) {
                         Image(
@@ -243,11 +243,6 @@ fun CameraScreen(
                             contentScale = ContentScale.Crop
                         )
                     }
-                } else {
-                    AndroidView(
-                        factory = { previewView },
-                        modifier = Modifier.fillMaxSize()
-                    )
                 }
             }
             Box(
@@ -393,6 +388,8 @@ fun CameraScreen(
                     onShutterClicked = { viewModel.onShutter(previewView) },
                     onGalleryClicked = onGalleryClicked,
                     onEffectSelected = viewModel::setEffect,
+                    onIntensityChange = viewModel::setEffectIntensity,
+                    onResetIntensity = viewModel::resetEffectIntensity,
                     onZoomSelected = viewModel::setZoom
                 )
             }

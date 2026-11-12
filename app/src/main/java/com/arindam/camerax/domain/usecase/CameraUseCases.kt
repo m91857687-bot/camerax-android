@@ -91,9 +91,15 @@ class TapToFocus(private val repository: CameraRepository) {
     operator fun invoke(x: Float, y: Float) = repository.tapToFocus(x, y)
 }
 
-/** Live effect chip. Updates the ImageAnalysis color matrix; does not rebind. */
+/** Live effect chip. Updates the GPU shader and ImageAnalysis color matrix; does not rebind. */
 class SetEffect(private val repository: CameraRepository) {
     operator fun invoke(type: EffectMode) = repository.setEffect(type)
+    operator fun invoke(type: EffectMode, intensity: Float) = repository.setEffect(type, intensity)
+}
+
+/** Updates live filter intensity without changing mode. */
+class SetEffectIntensity(private val repository: CameraRepository) {
+    operator fun invoke(intensity: Float) = repository.setEffectIntensity(intensity)
 }
 
 /** Large-screen rotation. Does not rebind. */

@@ -63,6 +63,43 @@ class ColorEffectsTest {
         }
     }
 
+    @Test
+    fun cinematicFilters_containsElevenFiltersPlusOriginal() {
+        assertEquals(12, EffectMode.cinematicFilters.size)
+        assertEquals(EffectMode.NONE, EffectMode.cinematicFilters.first())
+        val expected = listOf(
+            EffectMode.NONE,
+            EffectMode.NATURAL,
+            EffectMode.CINEMATIC,
+            EffectMode.VINTAGE,
+            EffectMode.WARM,
+            EffectMode.COLD,
+            EffectMode.GOLDEN,
+            EffectMode.NOIR,
+            EffectMode.DRAMA,
+            EffectMode.PORTRAIT,
+            EffectMode.SUNSET,
+            EffectMode.SOFT
+        )
+        assertEquals(expected, EffectMode.cinematicFilters)
+    }
+
+    @Test
+    fun applyToBitmap_zeroIntensity_returnsOriginalBitmap() {
+        val source = redPixel()
+        assertSame(source, ColorEffects.applyToBitmap(source, EffectMode.CINEMATIC, intensity = 0.0f))
+    }
+
+    @Test
+    fun applyToBitmap_partialIntensity_returnsBlendedBitmap() {
+        val source = redPixel()
+        val result = ColorEffects.applyToBitmap(source, EffectMode.CINEMATIC, intensity = 0.5f)
+        assertNotSame(source, result)
+        assertEquals(Bitmap.Config.ARGB_8888, result.config)
+        assertEquals(1, result.width)
+        assertEquals(1, result.height)
+    }
+
     private fun redPixel(): Bitmap =
         Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
             setPixel(0, 0, Color.RED)

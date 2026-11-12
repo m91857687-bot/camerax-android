@@ -12,6 +12,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,6 +43,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.testTag
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Exposure
@@ -120,6 +126,7 @@ import com.arindam.camerax.domain.model.StillFormat
 import com.arindam.camerax.domain.model.TimerMode
 import com.arindam.camerax.domain.model.VideoHdrRange
 import com.arindam.camerax.ui.compose.CameraGlassButton
+import com.arindam.camerax.ui.compose.ChromeControlSize
 import com.arindam.camerax.ui.theme.CameraAccent
 import com.arindam.camerax.ui.theme.CameraDanger
 import com.arindam.camerax.ui.theme.CameraFontFamily
@@ -752,30 +759,120 @@ fun ZoomChips(
 }
 
 @Composable
+fun FilterIntensityControl(
+    intensity: Float,
+    onIntensityChange: (Float) -> Unit,
+    onResetIntensity: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .fillMaxWidth()
+            .testTag("filter_intensity_control"),
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xDD1E1E1E),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "${(intensity * 100).roundToInt()}%",
+                color = CameraAccent,
+                fontFamily = CameraMono,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .width(44.dp)
+                    .testTag("filter_intensity_value")
+            )
+            Slider(
+                value = intensity,
+                onValueChange = onIntensityChange,
+                valueRange = 0f..1f,
+                colors = SliderDefaults.colors(
+                    thumbColor = CameraAccent,
+                    activeTrackColor = CameraAccent,
+                    inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("filter_intensity_slider")
+            )
+            TextButton(
+                onClick = onResetIntensity,
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .height(ChromeControlSize)
+                    .testTag("filter_intensity_reset_button")
+            ) {
+                Text(
+                    text = stringResource(R.string.filter_intensity_reset),
+                    color = CameraOnGlass,
+                    fontSize = 12.sp,
+                    fontFamily = CameraFontFamily,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun EffectsFilmstrip(
     state: CameraUiState,
-    onEffectSelected: (EffectMode) -> Unit
+    onEffectSelected: (EffectMode) -> Unit,
+    onIntensityChange: (Float) -> Unit = {},
+    onResetIntensity: () -> Unit = {}
 ) {
     val itemWidth = 72.dp
-    AnimatedVisibility(visible = state.showsEffects && !state.isRecording) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
+    AnimatedVisibility(
+        visible = state.showsEffects && !state.isRecording,
+        enter = fadeIn(tween(200)) + expandVertically(tween(250)),
+        exit = fadeOut(tween(150)) + shrinkVertically(tween(200))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val edgeInset = ((maxWidth - itemWidth) / 2).coerceAtLeast(0.dp)
-            Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                Spacer(Modifier.width(edgeInset))
-                EffectMode.entries.forEachIndexed { index, effect ->
-                    if (index > 0) Spacer(Modifier.width(8.dp))
-                    EffectThumb(
-                        effect = effect,
-                        selected = state.effect == effect,
-                        onClick = { onEffectSelected(effect) },
-                        modifier = Modifier.width(itemWidth)
-                    )
+            AnimatedVisibility(
+                visible = state.effect != EffectMode.NONE,
+                enter = fadeIn(tween(180)) + expandVertically(tween(220)),
+                exit = fadeOut(tween(140)) + shrinkVertically(tween(180))
+            ) {
+                FilterIntensityControl(
+                    intensity = state.effectIntensity,
+                    onIntensityChange = onIntensityChange,
+                    onResetIntensity = onResetIntensity
+                )
+            }
+
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            ) {
+                val edgeInset = ((maxWidth - itemWidth) / 2).coerceAtLeast(0.dp)
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .testTag("effects_filmstrip_row")
+                ) {
+                    Spacer(Modifier.width(edgeInset))
+                    EffectMode.cinematicFilters.forEachIndexed { index, effect ->
+                        if (index > 0) Spacer(Modifier.width(8.dp))
+                        EffectThumb(
+                            effect = effect,
+                            selected = state.effect == effect,
+                            onClick = { onEffectSelected(effect) },
+                            modifier = Modifier.width(itemWidth)
+                        )
+                    }
+                    Spacer(Modifier.width(edgeInset))
                 }
-                Spacer(Modifier.width(edgeInset))
             }
         }
     }
@@ -801,6 +898,8 @@ fun CameraFooter(
     onShutterClicked: () -> Unit,
     onGalleryClicked: () -> Unit,
     onEffectSelected: (EffectMode) -> Unit,
+    onIntensityChange: (Float) -> Unit = {},
+    onResetIntensity: () -> Unit = {},
     onZoomSelected: (Float) -> Unit = {}
 ) {
     val chrome = if (state.showsTools) themedOverlayChrome() else null
@@ -837,7 +936,9 @@ fun CameraFooter(
         if (!state.lockCaptureMode) {
             EffectsFilmstrip(
                 state = state,
-                onEffectSelected = onEffectSelected
+                onEffectSelected = onEffectSelected,
+                onIntensityChange = onIntensityChange,
+                onResetIntensity = onResetIntensity
             )
             AnimatedVisibility(
                 visible = !state.isRecording && !state.panoramaActive,
@@ -1106,31 +1207,43 @@ private fun EffectThumb(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val fill = when (effect) {
-        EffectMode.NONE -> Color.White
-        EffectMode.GRAYSCALE -> Color(0xFFBDBDBD)
-        EffectMode.INVERT -> Color(0xFF212121)
-        EffectMode.SEPIA -> Color(0xFFD7A86E)
-        EffectMode.COOL -> Color(0xFF7EC8E3)
-        EffectMode.WARM -> Color(0xFFFFB74D)
-        EffectMode.VIVID -> Color(0xFFFF5C8A)
+    val fillBrush: Brush = when (effect) {
+        EffectMode.NONE -> Brush.linearGradient(listOf(Color.White, Color(0xFFCFD8DC)))
+        EffectMode.NATURAL -> Brush.linearGradient(listOf(Color(0xFF81C784), Color(0xFF4FC3F7)))
+        EffectMode.CINEMATIC -> Brush.linearGradient(listOf(Color(0xFF00838F), Color(0xFFFF8F00)))
+        EffectMode.VINTAGE -> Brush.linearGradient(listOf(Color(0xFFD7CCC8), Color(0xFF8D6E63)))
+        EffectMode.WARM -> Brush.linearGradient(listOf(Color(0xFFFFB74D), Color(0xFFFF7043)))
+        EffectMode.COLD -> Brush.linearGradient(listOf(Color(0xFF80DEEA), Color(0xFF3F51B5)))
+        EffectMode.GOLDEN -> Brush.linearGradient(listOf(Color(0xFFFFD54F), Color(0xFFFF8F00)))
+        EffectMode.NOIR -> Brush.linearGradient(listOf(Color(0xFFEEEEEE), Color(0xFF212121)))
+        EffectMode.DRAMA -> Brush.linearGradient(listOf(Color(0xFFE53935), Color(0xFF1A237E)))
+        EffectMode.PORTRAIT -> Brush.linearGradient(listOf(Color(0xFFFFCCBC), Color(0xFFF48FB1)))
+        EffectMode.SUNSET -> Brush.linearGradient(listOf(Color(0xFFE040FB), Color(0xFFFF6D00)))
+        EffectMode.SOFT -> Brush.linearGradient(listOf(Color(0xFFE1BEE7), Color(0xFFC8E6C9)))
+        EffectMode.GRAYSCALE -> Brush.linearGradient(listOf(Color(0xFFBDBDBD), Color(0xFF757575)))
+        EffectMode.INVERT -> Brush.linearGradient(listOf(Color(0xFF212121), Color.Black))
+        EffectMode.SEPIA -> Brush.linearGradient(listOf(Color(0xFFD7A86E), Color(0xFFA1887F)))
+        EffectMode.COOL -> Brush.linearGradient(listOf(Color(0xFF7EC8E3), Color(0xFF0288D1)))
+        EffectMode.VIVID -> Brush.linearGradient(listOf(Color(0xFFFF5C8A), Color(0xFFD81B60)))
     }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = ripple(bounded = false),
-            onClick = onClick
-        )
+        modifier = modifier
+            .testTag("effect_item_${effect.name.lowercase()}")
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false),
+                onClick = onClick
+            )
     ) {
         Box(
             modifier = Modifier
                 .size(46.dp)
                 .clip(CircleShape)
-                .background(fill)
+                .background(fillBrush)
                 .then(
-                    if (selected) Modifier.border(2.dp, CameraAccent, CircleShape)
-                    else Modifier.border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                    if (selected) Modifier.border(2.5.dp, CameraAccent, CircleShape)
+                    else Modifier.border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
                 )
         )
         Spacer(Modifier.height(4.dp))
@@ -1138,7 +1251,7 @@ private fun EffectThumb(
             text = stringResource(effect.labelRes),
             color = if (selected) CameraAccent else CameraOnGlass,
             fontSize = 11.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center

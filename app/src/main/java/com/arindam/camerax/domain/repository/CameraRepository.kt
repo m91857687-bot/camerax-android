@@ -69,8 +69,12 @@ interface CameraRepository {
     /** Tap-to-focus at normalized view coordinates. */
     fun tapToFocus(x: Float, y: Float)
 
-    /** Updates live / still color-matrix effect without rebinding. */
+    /** Updates live / still color-matrix and GPU shader effect without rebinding. */
     fun setEffect(type: EffectMode)
+    fun setEffect(type: EffectMode, intensity: Float) {
+        setEffect(type)
+    }
+    fun setEffectIntensity(intensity: Float) {}
 
     /** Updates target rotation for capture; no rebind. */
     fun setTargetRotation(rotation: Int)

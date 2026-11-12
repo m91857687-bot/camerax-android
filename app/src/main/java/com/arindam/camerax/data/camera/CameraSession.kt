@@ -58,6 +58,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import androidx.core.net.toFile
+import com.arindam.camerax.data.filter.OpenGlSurfaceProcessor
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
@@ -127,6 +128,9 @@ class CameraSession(private val context: Context) : CameraRepository {
     private val _effectFrame = MutableStateFlow<Bitmap?>(null)
     override val effectFrame: StateFlow<Bitmap?> = _effectFrame.asStateFlow()
     private var boundPreviewView: PreviewView? = null
+    private var openGlSurfaceProcessor: OpenGlSurfaceProcessor? = null
+    private var currentEffect: EffectMode = EffectMode.NONE
+    private var currentEffectIntensity: Float = 1.0f
     private var frontMirrorEnabled = true
     private val _nightScene = MutableStateFlow(NightScene.UNKNOWN)
     override val nightScene: StateFlow<NightScene> = _nightScene.asStateFlow()
@@ -345,7 +349,8 @@ class CameraSession(private val context: Context) : CameraRepository {
                 imageCapture = capture,
                 videoCapture = if (includeVideo) video else null,
                 imageAnalysis = analysis,
-                fps60 = wantFps60
+                fps60 = wantFps60,
+                allowEffect = !useExtension
             )
         } catch (error: Exception) {
             if (!config.cameraId.isNullOrBlank()) {
@@ -358,7 +363,8 @@ class CameraSession(private val context: Context) : CameraRepository {
                     imageCapture = capture,
                     videoCapture = if (includeVideo) video else null,
                     imageAnalysis = analysis,
-                    fps60 = wantFps60
+                    fps60 = wantFps60,
+                    allowEffect = !useExtension
                 )
             } else {
                 throw error
@@ -515,7 +521,18 @@ class CameraSession(private val context: Context) : CameraRepository {
     }
 
     override fun setEffect(type: EffectMode) {
+        setEffect(type, currentEffectIntensity)
+    }
+
+    override fun setEffect(type: EffectMode, intensity: Float) {
+        currentEffect = type
+        currentEffectIntensity = intensity.coerceIn(0.0f, 1.0f)
         colorAnalyzer?.effect = type
+        openGlSurfaceProcessor?.setFilter(type, currentEffectIntensity)
+    }
+
+    override fun setEffectIntensity(intensity: Float) {
+        setEffect(currentEffect, intensity)
     }
 
     override fun setTargetRotation(rotation: Int) {
@@ -570,6 +587,8 @@ class CameraSession(private val context: Context) : CameraRepository {
         camera?.cameraControl?.enableTorch(false)
         cameraProvider?.unbindAll()
         stopColorAnalysis()
+        openGlSurfaceProcessor?.release()
+        openGlSurfaceProcessor = null
         camera = null
         preview = null
         imageCapture = null
@@ -997,18 +1016,21 @@ class CameraSession(private val context: Context) : CameraRepository {
         imageCapture: ImageCapture,
         videoCapture: VideoCapture<Recorder>?,
         imageAnalysis: ImageAnalysis?,
-        fps60: Boolean = false
+        fps60: Boolean = false,
+        allowEffect: Boolean = true
     ): Camera {
-        val attempts = mutableListOf<List<UseCase>>()
+        val attempts = mutableListOf<Pair<List<UseCase>, Boolean>>()
         if (imageAnalysis != null) {
-            attempts += listOfNotNull(preview, imageCapture, imageAnalysis)
-            attempts += listOf(imageCapture, imageAnalysis)
+            if (allowEffect) attempts += listOfNotNull(preview, imageCapture, imageAnalysis) to true
+            attempts += listOfNotNull(preview, imageCapture, imageAnalysis) to false
+            attempts += listOf(imageCapture, imageAnalysis) to false
         } else {
-            attempts += listOfNotNull(preview, imageCapture, videoCapture)
-            attempts += listOfNotNull(preview, imageCapture)
+            if (allowEffect) attempts += listOfNotNull(preview, imageCapture, videoCapture) to true
+            attempts += listOfNotNull(preview, imageCapture, videoCapture) to false
+            attempts += listOfNotNull(preview, imageCapture) to false
         }
         var lastError: Exception? = null
-        for (useCases in attempts) {
+        for ((useCases, useEffect) in attempts) {
             try {
                 provider.unbindAll()
                 val bound = bindSession(
@@ -1016,7 +1038,8 @@ class CameraSession(private val context: Context) : CameraRepository {
                     lifecycleOwner = lifecycleOwner,
                     selector = selector,
                     useCases = useCases,
-                    fps60 = fps60 && videoCapture != null && useCases.contains(videoCapture)
+                    fps60 = fps60 && videoCapture != null && useCases.contains(videoCapture),
+                    applyEffect = useEffect
                 )
                 this.videoCapture = videoCapture?.takeIf { capture -> useCases.contains(capture) }
                 this.imageCapture = imageCapture.takeIf { capture -> useCases.contains(capture) }
@@ -1026,11 +1049,11 @@ class CameraSession(private val context: Context) : CameraRepository {
                 if (imageAnalysis == null || !useCases.contains(imageAnalysis)) {
                     stopColorAnalysis()
                 }
-                Logger.debug(TAG, "Bound use cases: ${useCases.map { it.javaClass.simpleName }}")
+                Logger.debug(TAG, "Bound use cases: ${useCases.map { it.javaClass.simpleName }}, effect=$useEffect")
                 return bound
             } catch (error: Exception) {
                 lastError = error
-                Logger.warning(TAG, "Bind attempt failed: ${error.message}")
+                Logger.warning(TAG, "Bind attempt failed (effect=$useEffect): ${error.message}")
             }
         }
         throw lastError ?: IllegalStateException("Unable to bind camera")
@@ -1041,11 +1064,19 @@ class CameraSession(private val context: Context) : CameraRepository {
         lifecycleOwner: LifecycleOwner,
         selector: CameraSelector,
         useCases: List<UseCase>,
-        fps60: Boolean
+        fps60: Boolean,
+        applyEffect: Boolean = false
     ): Camera {
         val groupBuilder = UseCaseGroup.Builder().apply {
             useCases.forEach { addUseCase(it) }
             boundPreviewView?.viewPort?.let { setViewPort(it) }
+            if (applyEffect && !fps60) {
+                val processor = openGlSurfaceProcessor ?: OpenGlSurfaceProcessor().also {
+                    openGlSurfaceProcessor = it
+                }
+                processor.setFilter(currentEffect, currentEffectIntensity)
+                addEffect(processor.toCameraEffect())
+            }
         }
         if (fps60) {
             try {
@@ -1413,11 +1444,15 @@ class CameraSession(private val context: Context) : CameraRepository {
 
     private data class HighSpeedBind(val camera: Camera, val fps: Int)
 
-    private fun applyStillOutput(file: File, type: EffectMode): File {
-        if (type == EffectMode.NONE) return file
+    private fun applyStillOutput(
+        file: File,
+        type: EffectMode,
+        intensity: Float = currentEffectIntensity
+    ): File {
+        if (type == EffectMode.NONE || intensity <= 0f) return file
         return try {
             StillImageExif.rewriteJpeg(file, quality = 95, maxEdge = MAX_STILL_EDGE) { oriented ->
-                ColorEffects.applyToBitmap(oriented, type)
+                ColorEffects.applyToBitmap(oriented, type, intensity)
             }
         } catch (error: Throwable) {
             Logger.error(TAG, "Still effect failed: ${error.message}", error)
